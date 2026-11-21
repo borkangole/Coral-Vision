@@ -1,0 +1,11 @@
+# Coral Vision — EfficientNet-B0 training pipeline
+# Tested against Python 3.10/3.11. Install with:
+#   pip install -r requirements.txt
+
+tensorflow==2.16.1        # includes tf.keras.applications.EfficientNetB0
+numpy==1.26.4
+pillow==10.4.0
+scikit-learn==1.5.1       # train/val/test split, classification report, confusion matrix
+matplotlib==3.9.1         # training curves, confusion matrix plot
+pandas==2.2.2              # per-image manifest / results tables
+tqdm==4.66.4
