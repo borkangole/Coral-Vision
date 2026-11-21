@@ -2,7 +2,7 @@
 
 **A Mobile-based Coral Species Identification System Using EfficientNet-B0 Algorithm, Conservation Information Retrieval and Geo-tag Monitoring**
 
-Coral Vision is a mobile app that identifies coral species from a photo, shows each species' conservation profile, and records where every find was made. It was built as a master's thesis project at Iloilo Science and Technology University, using coral species from the Capiz Provincial Environment and Natural Resources Office (PENRO).
+Coral Vision is a mobile app that identifies coral species from a photo, shows each species' conservation profile, and records where every find was made. It was developed for a master's thesis at Iloilo Science and Technology University, using coral species from the Capiz Provincial Environment and Natural Resources Office (PENRO).
 
 ## Features
 
@@ -59,6 +59,6 @@ See [`training/README.md`](training/README.md). In short: put images in `trainin
 
 The system is evaluated with an accuracy test on a held-out image set and the Post-Study System Usability Questionnaire (PSSUQ).
 
-## Author
+## Developer
 
-Mhel Bustamante – Iloilo Science and Technology University
+Developed by Mhel Bustamante (West Visayas State University) as a freelance project.
