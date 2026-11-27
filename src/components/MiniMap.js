@@ -1,15 +1,13 @@
 import { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import colors from '../theme/colors';
+import Icon from './Icon';
+import { cardStyle } from './Section';
+import { color } from '../theme/tokens';
+import { type } from '../theme/type';
 
-// Centered on Panay Island when there is nothing to show yet.
-const PANAY_REGION = {
-  latitude: 11.15,
-  longitude: 122.55,
-  latitudeDelta: 1.6,
-  longitudeDelta: 1.6,
-};
+// Centred on Panay Island when there is nothing to show yet.
+const PANAY_REGION = { latitude: 11.15, longitude: 122.55, latitudeDelta: 1.6, longitudeDelta: 1.6 };
 
 function regionFor(records) {
   if (records.length === 0) return PANAY_REGION;
@@ -27,79 +25,55 @@ function regionFor(records) {
   };
 }
 
-// Read-only preview of every geo-tagged find. The map itself ignores touches;
-// tapping the card opens the full Map screen.
+// Read-only preview of every geo-tagged find; the whole card opens the map.
 export default function MiniMap({ records, onPress }) {
   const tagged = useMemo(() => records.filter((r) => r.geoTag), [records]);
   const region = useMemo(() => regionFor(tagged), [tagged]);
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-      accessibilityRole="button"
-      accessibilityLabel="Open full map"
-    >
-      <View style={styles.mapWrap} pointerEvents="none">
-        <MapView
-          style={StyleSheet.absoluteFill}
-          region={region}
-          scrollEnabled={false}
-          zoomEnabled={false}
-          rotateEnabled={false}
-          pitchEnabled={false}
-          toolbarEnabled={false}
-          showsCompass={false}
-          liteMode={Platform.OS === 'android'}
-        >
-          {tagged.map((r) => (
-            <Marker
-              key={r.id}
-              coordinate={{ latitude: r.geoTag.latitude, longitude: r.geoTag.longitude }}
-              anchor={{ x: 0.5, y: 0.5 }}
-              tracksViewChanges={false}
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Open full map">
+      {({ pressed }) => (
+        <View style={[styles.card, pressed && { opacity: 0.9 }]}>
+          <View style={styles.map} pointerEvents="none">
+            <MapView
+              style={StyleSheet.absoluteFill}
+              region={region}
+              scrollEnabled={false}
+              zoomEnabled={false}
+              rotateEnabled={false}
+              pitchEnabled={false}
+              toolbarEnabled={false}
+              showsCompass={false}
+              liteMode={Platform.OS === 'android'}
             >
-              <View style={styles.dot} />
-            </Marker>
-          ))}
-        </MapView>
-      </View>
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          {tagged.length} {tagged.length === 1 ? 'location' : 'locations'}
-        </Text>
-        <Text style={styles.footerLink}>Open map →</Text>
-      </View>
+              {tagged.map((r) => (
+                <Marker
+                  key={r.id}
+                  coordinate={{ latitude: r.geoTag.latitude, longitude: r.geoTag.longitude }}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  tracksViewChanges={false}
+                >
+                  <View style={styles.dot} />
+                </Marker>
+              ))}
+            </MapView>
+          </View>
+          <View style={styles.footer}>
+            <Icon name="pin" size={16} color={color.ink2} />
+            <Text style={[type.smallMedium, { flex: 1 }]}>
+              {tagged.length} {tagged.length === 1 ? 'location' : 'locations'} around Panay
+            </Text>
+            <Icon name="arrow" size={16} color={color.ink3} strokeWidth={2} />
+          </View>
+        </View>
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.line,
-    overflow: 'hidden',
-    marginBottom: 24,
-  },
-  pressed: { opacity: 0.85 },
-  mapWrap: { height: 170, backgroundColor: colors.line },
-  dot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.coral500,
-    borderWidth: 2.5,
-    borderColor: colors.white,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
-  footerText: { fontSize: 13, color: colors.inkMuted },
-  footerLink: { fontSize: 13, fontWeight: '700', color: colors.coral600 },
+  card: { ...cardStyle, overflow: 'hidden' },
+  map: { height: 176, backgroundColor: color.sunken },
+  dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: color.coral, borderWidth: 2, borderColor: color.surface },
+  footer: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 12 },
 });

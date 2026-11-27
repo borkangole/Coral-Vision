@@ -1,41 +1,42 @@
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
-import colors from '../theme/colors';
-import { numeric } from '../theme/type';
+import Icon from './Icon';
+import { color } from '../theme/tokens';
+import { type, font } from '../theme/type';
+import { placeLabel, shortDate, percent } from '../utils/format';
 
-export default function HistoryCard({ record, onPress, onLongPress }) {
-  const date = new Date(record.timestamp);
-  const confidencePct = record.topConfidence != null ? (record.topConfidence * 100).toFixed(1) : null;
+// One dive-log entry. Rendered inside a grouped card; `last` drops the divider.
+export default function LogRow({ record, onPress, onLongPress, last }) {
+  const top = record.predictions?.[0];
+  const where = placeLabel(record.geoTag);
 
   return (
-    <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-      onPress={onPress}
-      onLongPress={onLongPress}
-      accessibilityRole="button"
-    >
-      {record.imageUri ? (
-        <Image source={{ uri: record.imageUri }} style={styles.thumbnail} />
-      ) : (
-        <View style={styles.thumbnail} />
-      )}
-      <View style={styles.cardBody}>
-        <Text style={styles.speciesName} numberOfLines={1}>
-          {record.topCommonName || 'Unknown species'}
-        </Text>
-        <Text style={styles.cardMeta}>
-          {date.toLocaleDateString()} · {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-        {record.geoTag ? (
-          <Text style={[styles.cardMeta, numeric]}>
-            {record.geoTag.latitude.toFixed(4)}, {record.geoTag.longitude.toFixed(4)}
-          </Text>
-        ) : (
-          <Text style={styles.cardMetaMuted}>No location recorded</Text>
-        )}
-      </View>
-      {confidencePct && (
-        <View style={styles.confidenceBadge}>
-          <Text style={[styles.confidenceBadgeText, numeric]}>{confidencePct}%</Text>
+    <Pressable onPress={onPress} onLongPress={onLongPress} accessibilityRole="button">
+      {({ pressed }) => (
+        <View style={[styles.row, pressed && styles.pressed]}>
+          {record.imageUri ? (
+            <Image source={{ uri: record.imageUri }} style={styles.thumb} />
+          ) : (
+            <View style={styles.thumb} />
+          )}
+          <View style={styles.body}>
+            <Text style={type.bodyMedium} numberOfLines={1}>
+              {record.topCommonName || 'Unknown species'}
+            </Text>
+            {top?.scientificName ? (
+              <Text style={styles.binomial} numberOfLines={1}>
+                {top.scientificName}
+              </Text>
+            ) : null}
+            <Text style={styles.meta} numberOfLines={1}>
+              {shortDate(record.timestamp)}
+              {where ? `  ·  ${where}` : ''}
+            </Text>
+          </View>
+          {record.topConfidence != null ? (
+            <Text style={styles.pct}>{percent(record.topConfidence, 0)}</Text>
+          ) : null}
+          <Icon name="chevron" size={16} color={color.ink4} strokeWidth={2} />
+          {!last ? <View style={styles.divider} /> : null}
         </View>
       )}
     </Pressable>
@@ -43,28 +44,12 @@ export default function HistoryCard({ record, onPress, onLongPress }) {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.line,
-    padding: 10,
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  cardPressed: { backgroundColor: colors.mist },
-  thumbnail: { width: 66, height: 66, borderRadius: 13, backgroundColor: colors.line },
-  cardBody: { flex: 1, marginLeft: 12 },
-  speciesName: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  cardMeta: { fontSize: 12, color: colors.inkMuted, marginTop: 2 },
-  cardMetaMuted: { fontSize: 12, color: colors.inkMuted, marginTop: 2, fontStyle: 'italic' },
-  confidenceBadge: {
-    backgroundColor: colors.mist,
-    borderRadius: 10,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    marginLeft: 8,
-  },
-  confidenceBadgeText: { color: colors.navy700, fontSize: 12, fontWeight: '700' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, gap: 12 },
+  pressed: { backgroundColor: color.paper },
+  thumb: { width: 52, height: 52, borderRadius: 10, backgroundColor: color.sunken },
+  body: { flex: 1 },
+  binomial: { ...type.binomial, fontSize: 15, lineHeight: 19 },
+  meta: { ...type.small, fontSize: 12, color: color.ink3, marginTop: 2 },
+  pct: { fontFamily: font.sansMedium, fontSize: 14, color: color.ink2, fontVariant: ['tabular-nums'] },
+  divider: { position: 'absolute', left: 78, right: 0, bottom: 0, height: StyleSheet.hairlineWidth, backgroundColor: color.hairStrong },
 });

@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, Image, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import * as ImagePicker from 'expo-image-picker';
-import ScreenHeader from '../components/ScreenHeader';
 import Brackets from '../components/Brackets';
 import Button from '../components/Button';
-import colors from '../theme/colors';
+import IconButton from '../components/IconButton';
+import Icon from '../components/Icon';
+import { color, radius } from '../theme/tokens';
+import { type, font } from '../theme/type';
 
 export default function CaptureScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -16,10 +19,7 @@ export default function CaptureScreen({ navigation }) {
   const pickFromGallery = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert(
-        'Permission needed',
-        'Coral Vision needs access to your photo gallery to select a coral image.'
-      );
+      Alert.alert('Permission needed', 'Coral Vision needs access to your photos to select a coral image.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -31,8 +31,8 @@ export default function CaptureScreen({ navigation }) {
     if (!result.canceled && result.assets?.length) {
       setPreviewUri(result.assets[0].uri);
       setPreviewExif(result.assets[0].exif || null);
-      // Lets us look up the photo's real location from the Photos library
-      // itself later: iOS strips GPS out of the raw file the picker returns.
+      // Lets us look up the photo's real location in the Photos library later:
+      // iOS strips GPS out of the raw file the picker returns.
       setPreviewAssetId(result.assets[0].assetId || null);
     }
   };
@@ -43,11 +43,7 @@ export default function CaptureScreen({ navigation }) {
       Alert.alert('Permission needed', 'Coral Vision needs camera access to capture a coral image.');
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 0.9,
-      allowsEditing: false,
-      exif: true,
-    });
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.9, allowsEditing: false, exif: true });
     if (!result.canceled && result.assets?.length) {
       setPreviewUri(result.assets[0].uri);
       setPreviewExif(result.assets[0].exif || null);
@@ -57,58 +53,66 @@ export default function CaptureScreen({ navigation }) {
 
   const proceedToIdentify = () => {
     if (!previewUri) return;
-    navigation.navigate('Result', {
-      imageUri: previewUri,
-      exif: previewExif,
-      assetId: previewAssetId,
-    });
+    navigation.navigate('Result', { imageUri: previewUri, exif: previewExif, assetId: previewAssetId });
   };
 
   return (
     <View style={styles.root}>
-      <ScreenHeader
-        title="Capture"
-        subtitle="Take or choose a coral photo"
-        onBack={() => navigation.goBack()}
-      />
+      <StatusBar style="light" />
+      <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+        <IconButton name="back" variant="glass" label="Go back" onPress={() => navigation.goBack()} />
+        <Text style={styles.title}>New identification</Text>
+        <View style={{ width: 40 }} />
+      </View>
 
-      <View style={[styles.body, { paddingBottom: insets.bottom + 16 }]}>
-        <View style={styles.viewfinder}>
-          {previewUri ? (
-            <Image source={{ uri: previewUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-          ) : (
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>No image selected</Text>
-              <Text style={styles.emptyText}>Take a photo or choose one from your gallery.</Text>
-            </View>
-          )}
-          <Brackets color={previewUri ? colors.white : 'rgba(255,255,255,0.35)'} />
-        </View>
+      <View style={styles.viewfinder}>
+        {previewUri ? (
+          <Image source={{ uri: previewUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        ) : (
+          <View style={styles.empty}>
+            <Icon name="scan" size={34} color={color.onAbyss3} strokeWidth={1.5} />
+            <Text style={styles.emptyTitle}>Frame a single colony</Text>
+            <Text style={styles.emptyBody}>Fill the frame and keep it in focus. Underwater or surface photos both work.</Text>
+          </View>
+        )}
+        <Brackets color={previewUri ? 'rgba(255,255,255,0.9)' : color.onAbyss3} size={26} inset={18} />
+      </View>
 
+      <View style={[styles.controls, { paddingBottom: insets.bottom + 16 }]}>
         <View style={styles.row}>
-          <Button style={styles.flex} variant="navy" label="Take Photo" onPress={captureWithCamera} />
-          <Button style={styles.flex} variant="outline" label="Gallery" onPress={pickFromGallery} />
+          <Button style={styles.flex} variant="glass" icon="image" label="Library" onPress={pickFromGallery} />
+          <Button style={styles.flex} variant="glass" icon="camera" label="Camera" onPress={captureWithCamera} />
         </View>
-        <Button label="Identify Coral" disabled={!previewUri} onPress={proceedToIdentify} />
+        <Button
+          variant={previewUri ? 'accent' : 'glass'}
+          icon="arrow"
+          label="Identify coral"
+          disabled={!previewUri}
+          onPress={proceedToIdentify}
+        />
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.mist },
-  body: { flex: 1, padding: 16, gap: 12 },
+  root: { flex: 1, backgroundColor: color.abyss },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12 },
+  title: { fontFamily: font.sansSemi, fontSize: 16, color: color.onAbyss, letterSpacing: -0.2 },
   viewfinder: {
     flex: 1,
-    borderRadius: 22,
+    marginHorizontal: 16,
+    marginTop: 4,
+    borderRadius: radius.lg,
     overflow: 'hidden',
-    backgroundColor: colors.navy800,
+    backgroundColor: color.abyss2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  empty: { alignItems: 'center', paddingHorizontal: 40 },
-  emptyTitle: { color: colors.white, fontSize: 17, fontWeight: '600' },
-  emptyText: { color: colors.skyMuted, fontSize: 14, marginTop: 6, textAlign: 'center' },
-  row: { flexDirection: 'row', gap: 12 },
+  empty: { alignItems: 'center', paddingHorizontal: 48 },
+  emptyTitle: { fontFamily: font.serif, fontSize: 26, color: color.onAbyss, marginTop: 16, letterSpacing: -0.2 },
+  emptyBody: { ...type.small, color: color.onAbyss2, textAlign: 'center', marginTop: 6 },
+  controls: { paddingHorizontal: 16, paddingTop: 16, gap: 10 },
+  row: { flexDirection: 'row', gap: 10 },
   flex: { flex: 1 },
 });

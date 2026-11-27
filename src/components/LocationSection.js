@@ -1,41 +1,50 @@
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import Section from './Section';
-import colors from '../theme/colors';
-import { numeric } from '../theme/type';
+import Group from './Section';
+import Icon from './Icon';
+import { color } from '../theme/tokens';
+import { type, font } from '../theme/type';
 
 function describeSource(geoTag) {
-  if (geoTag.source === 'photo-library' || geoTag.source === 'exif') {
-    return 'From photo location (taken earlier)';
-  }
-  const accuracy = geoTag.accuracy != null ? ` · Accuracy ±${Math.round(geoTag.accuracy)}m` : '';
+  if (geoTag.placeName) return geoTag.placeName;
+  if (geoTag.source === 'photo-library' || geoTag.source === 'exif') return 'From the photo’s own location';
+  const accuracy = geoTag.accuracy != null ? ` · ±${Math.round(geoTag.accuracy)} m` : '';
   return `Current device location${accuracy}`;
 }
 
-// Shared by the Result and Saved Identification screens.
+// Shared by the result and saved-identification screens.
 export default function LocationSection({ geoTag, loading }) {
   return (
-    <Section title="Location">
-      {loading ? (
-        <View style={styles.row}>
-          <ActivityIndicator size="small" color={colors.navy600} />
-          <Text style={styles.meta}>Getting location...</Text>
+    <Group label="Location">
+      <View style={styles.row}>
+        <View style={styles.well}>
+          {loading ? <ActivityIndicator size="small" color={color.ink2} /> : <Icon name="pin" size={18} color={color.ink} />}
         </View>
-      ) : geoTag ? (
-        <View>
-          <Text style={styles.coords}>
-            {geoTag.latitude.toFixed(6)}, {geoTag.longitude.toFixed(6)}
-          </Text>
-          <Text style={styles.meta}>{describeSource(geoTag)}</Text>
+        <View style={{ flex: 1 }}>
+          {loading ? (
+            <Text style={type.small}>Finding where this was taken…</Text>
+          ) : geoTag ? (
+            <>
+              <Text style={styles.coords}>
+                {geoTag.latitude.toFixed(5)}, {geoTag.longitude.toFixed(5)}
+              </Text>
+              <Text style={[type.small, { color: color.ink3, marginTop: 2 }]}>{describeSource(geoTag)}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={type.bodyMedium}>No location</Text>
+              <Text style={[type.small, { color: color.ink3, marginTop: 2 }]}>
+                Permission was denied or the photo has no location.
+              </Text>
+            </>
+          )}
         </View>
-      ) : (
-        <Text style={styles.meta}>Location not recorded (permission denied or unavailable).</Text>
-      )}
-    </Section>
+      </View>
+    </Group>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  coords: { ...numeric, fontSize: 17, fontWeight: '700', color: colors.ink },
-  meta: { fontSize: 13, color: colors.inkMuted, marginTop: 3, lineHeight: 18 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  well: { width: 40, height: 40, borderRadius: 12, backgroundColor: color.paper, alignItems: 'center', justifyContent: 'center' },
+  coords: { fontFamily: font.sansSemi, fontSize: 16, color: color.ink, fontVariant: ['tabular-nums'], letterSpacing: -0.2 },
 });

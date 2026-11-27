@@ -1,16 +1,19 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Alert, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, SectionList, Alert, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
 import { getHistory, deleteHistoryRecord } from '../services/storage';
-import HistoryCard from '../components/HistoryCard';
+import LogRow from '../components/HistoryCard';
 import ScreenHeader from '../components/ScreenHeader';
-import colors from '../theme/colors';
+import { color, gutter, radius } from '../theme/tokens';
+import { type } from '../theme/type';
+import { monthKey } from '../utils/format';
 
 export default function HistoryScreen({ navigation, route }) {
-  // Optional filters passed from the Dashboard insight cards.
-  const { speciesId, maxConfidence, filterLabel } = route?.params || {};
   const insets = useSafeAreaInsets();
+  // Optional filters passed from the dashboard insight cards
+  const { speciesId, maxConfidence, filterLabel } = route?.params || {};
   const [records, setRecords] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -37,6 +40,17 @@ export default function HistoryScreen({ navigation, route }) {
     [records, speciesId, maxConfidence]
   );
 
+  // Dive-log grouping: one section per month, newest first
+  const sections = useMemo(() => {
+    const map = new Map();
+    visible.forEach((r) => {
+      const key = monthKey(r.timestamp);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(r);
+    });
+    return [...map.entries()].map(([title, data]) => ({ title, data }));
+  }, [visible]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadHistory();
@@ -44,7 +58,7 @@ export default function HistoryScreen({ navigation, route }) {
   };
 
   const confirmDelete = (record) => {
-    Alert.alert('Delete this record?', record.topCommonName || 'This identification', [
+    Alert.alert('Delete this find?', record.topCommonName || 'This identification', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -57,47 +71,76 @@ export default function HistoryScreen({ navigation, route }) {
     ]);
   };
 
+  const subtitle = filterLabel
+    ? `${visible.length} of ${records.length} finds`
+    : `${records.length} ${records.length === 1 ? 'find' : 'finds'} · hold a row to delete`;
+
   return (
     <View style={styles.root}>
-      <ScreenHeader
-        title={filterLabel || 'History'}
-        subtitle={
-          filterLabel
-            ? `${visible.length} of ${records.length} saved · Long-press to delete`
-            : `${records.length} saved · Tap to view · Long-press to delete`
+      <StatusBar style="dark" />
+      <SectionList
+        sections={sections}
+        keyExtractor={(item) => item.id}
+        stickySectionHeadersEnabled={false}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={color.ink3} />}
+        ListHeaderComponent={
+          <ScreenHeader
+            eyebrow={filterLabel ? 'Filtered' : undefined}
+            title={filterLabel || 'All finds'}
+            subtitle={subtitle}
+            onBack={() => navigation.goBack()}
+          />
         }
-        onBack={() => navigation.goBack()}
+        ListEmptyComponent={
+          loaded ? (
+            <View style={styles.empty}>
+              <Text style={type.heading}>{filterLabel ? 'Nothing here' : 'No finds yet'}</Text>
+              <Text style={[type.small, { color: color.ink3, marginTop: 4, textAlign: 'center' }]}>
+                {filterLabel
+                  ? 'No saved identifications match this filter.'
+                  : 'Identify a coral and save it to start your reef log.'}
+              </Text>
+            </View>
+          ) : null
+        }
+        renderSectionHeader={({ section }) => <Text style={styles.sectionLabel}>{section.title}</Text>}
+        renderItem={({ item, index, section }) => {
+          const first = index === 0;
+          const last = index === section.data.length - 1;
+          return (
+            <View style={[styles.cell, first && styles.cellFirst, last && styles.cellLast]}>
+              <LogRow
+                record={item}
+                last={last}
+                onPress={() => navigation.navigate('HistoryDetail', { record: item })}
+                onLongPress={() => confirmDelete(item)}
+              />
+            </View>
+          );
+        }}
+        SectionSeparatorComponent={() => <View style={{ height: 6 }} />}
       />
-
-      {loaded && visible.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>{filterLabel ? 'Nothing here' : 'No history yet'}</Text>
-          <Text style={styles.emptyText}>
-            Identify a coral and tap "Save to History" to see it here.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={visible}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <HistoryCard
-              record={item}
-              onPress={() => navigation.navigate('HistoryDetail', { record: item })}
-              onLongPress={() => confirmDelete(item)}
-            />
-          )}
-          contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.coral500} />}
-        />
-      )}
     </View>
   );
 }
 
+const hair = StyleSheet.hairlineWidth;
+
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.mist },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: colors.ink, marginBottom: 8 },
-  emptyText: { fontSize: 14, color: colors.inkMuted, textAlign: 'center' },
+  root: { flex: 1, backgroundColor: color.paper },
+  sectionLabel: { ...type.label, paddingHorizontal: gutter + 4, marginTop: 12, marginBottom: 4 },
+  // Rows of one month read as a single grouped card
+  cell: {
+    marginHorizontal: gutter,
+    backgroundColor: color.surface,
+    borderLeftWidth: hair,
+    borderRightWidth: hair,
+    borderColor: color.hairStrong,
+    overflow: 'hidden',
+  },
+  cellFirst: { borderTopWidth: hair, borderTopLeftRadius: radius.md, borderTopRightRadius: radius.md },
+  cellLast: { borderBottomWidth: hair, borderBottomLeftRadius: radius.md, borderBottomRightRadius: radius.md },
+  empty: { alignItems: 'center', paddingHorizontal: 40, paddingTop: 60 },
 });

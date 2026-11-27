@@ -1,16 +1,18 @@
-import { Pressable, Text, ActivityIndicator, StyleSheet } from 'react-native';
-import colors from '../theme/colors';
+import { Pressable, Text, ActivityIndicator, StyleSheet, View } from 'react-native';
+import Icon from './Icon';
+import { color, radius } from '../theme/tokens';
+import { font } from '../theme/type';
 
-// primary = coral (the one main action per screen), navy = secondary action,
-// outline = tertiary, onDark = sits on the navy header.
+// primary = ink (default action) · accent = coral (the one key action per
+// screen) · quiet = tonal, on paper · glass = on dark screens.
 const VARIANTS = {
-  primary: { bg: colors.coral500, pressed: colors.coral600, text: colors.navy900, border: 'transparent' },
-  navy: { bg: colors.navy700, pressed: colors.navy800, text: colors.white, border: 'transparent' },
-  outline: { bg: 'transparent', pressed: 'rgba(21,51,98,0.08)', text: colors.navy700, border: colors.navy600 },
-  onDark: { bg: 'rgba(255,255,255,0.12)', pressed: 'rgba(255,255,255,0.22)', text: colors.white, border: 'rgba(255,255,255,0.30)' },
+  primary: { bg: color.ink, pressed: '#162B4D', text: color.surface },
+  accent: { bg: color.coral, pressed: color.coralPressed, text: color.abyss },
+  quiet: { bg: color.sunken, pressed: '#E0DCD3', text: color.ink },
+  glass: { bg: color.glass, pressed: color.glassPressed, text: color.onAbyss },
 };
 
-export default function Button({ label, onPress, variant = 'primary', disabled, loading, compact, style }) {
+export default function Button({ label, onPress, variant = 'primary', icon, disabled, loading, compact, style }) {
   const v = VARIANTS[variant];
   const inactive = disabled || loading;
 
@@ -23,31 +25,29 @@ export default function Button({ label, onPress, variant = 'primary', disabled, 
       style={({ pressed }) => [
         styles.base,
         compact ? styles.compact : styles.regular,
-        {
-          backgroundColor: disabled ? colors.line : pressed ? v.pressed : v.bg,
-          borderColor: disabled ? 'transparent' : v.border,
-        },
+        { backgroundColor: pressed ? v.pressed : v.bg, opacity: disabled ? 0.4 : 1 },
+        pressed && styles.pressed,
         style,
       ]}
     >
       {loading ? (
         <ActivityIndicator color={v.text} />
       ) : (
-        <Text
-          style={[styles.label, compact && styles.labelCompact, { color: disabled ? colors.inkMuted : v.text }]}
-          numberOfLines={1}
-        >
-          {label}
-        </Text>
+        <View style={styles.row}>
+          {icon ? <Icon name={icon} size={compact ? 16 : 19} color={v.text} /> : null}
+          <Text style={[styles.label, compact && styles.labelCompact, { color: v.text }]}>{label}</Text>
+        </View>
       )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  base: { borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  regular: { minHeight: 54, paddingHorizontal: 18, borderRadius: 16 },
-  compact: { minHeight: 38, paddingHorizontal: 14, borderRadius: 12 },
-  label: { fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
-  labelCompact: { fontSize: 13 },
+  base: { alignItems: 'center', justifyContent: 'center' },
+  regular: { height: 54, borderRadius: 15, paddingHorizontal: 20 },
+  compact: { height: 38, borderRadius: 11, paddingHorizontal: 14 },
+  pressed: { transform: [{ scale: 0.98 }] },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  label: { fontFamily: font.sansSemi, fontSize: 16, letterSpacing: -0.1 },
+  labelCompact: { fontSize: 14 },
 });

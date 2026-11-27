@@ -1,11 +1,16 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Alert, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
 import { getHistory } from '../services/storage';
 import { loadSampleData } from '../services/sampleData';
-import HistoryCard from '../components/HistoryCard';
+import LogRow from '../components/HistoryCard';
 import MiniMap from '../components/MiniMap';
+import Group from '../components/Section';
+import Button from '../components/Button';
+import IconButton from '../components/IconButton';
+import Brackets from '../components/Brackets';
 import {
   ThreatAlert,
   ConservationStatus,
@@ -14,17 +19,20 @@ import {
   THREAT_SPECIES_ID,
   LOW_CONFIDENCE,
 } from '../components/DashboardInsights';
-import ScreenHeader from '../components/ScreenHeader';
-import Button from '../components/Button';
-import colors from '../theme/colors';
-import { numeric } from '../theme/type';
+import { color, gutter, radius } from '../theme/tokens';
+import { type, font } from '../theme/type';
+import { placeLabel } from '../utils/format';
 
 const RECENT_COUNT = 3;
 
-function Stat({ value, label, divider }) {
+function todayLabel() {
+  return new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+function Stat({ value, label, rule }) {
   return (
-    <View style={[styles.stat, divider && styles.statDivider]}>
-      <Text style={[styles.statValue, numeric]}>{value}</Text>
+    <View style={[styles.stat, rule && styles.statRule]}>
+      <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -41,7 +49,6 @@ export default function DashboardScreen({ navigation }) {
     setLoaded(true);
   }, []);
 
-  // Reload whenever the screen regains focus (e.g. after saving a result)
   useFocusEffect(
     useCallback(() => {
       loadHistory();
@@ -49,9 +56,13 @@ export default function DashboardScreen({ navigation }) {
   );
 
   const totalCount = records.length;
-  const uniqueSpeciesCount = new Set(records.map((r) => r.topSpeciesId).filter(Boolean)).size;
-  const geoTaggedCount = records.filter((r) => r.geoTag).length;
-  const recentRecords = records.slice(0, RECENT_COUNT);
+  const speciesCount = new Set(records.map((r) => r.topSpeciesId).filter(Boolean)).size;
+  const taggedCount = records.filter((r) => r.geoTag).length;
+  const siteCount = useMemo(
+    () => new Set(records.map((r) => placeLabel(r.geoTag)).filter(Boolean)).size,
+    [records]
+  );
+  const recent = records.slice(0, RECENT_COUNT);
 
   const confirmLoadSamples = () => {
     Alert.alert(
@@ -77,44 +88,64 @@ export default function DashboardScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <ScreenHeader
-        title="Coral Vision"
-        subtitle="Your identifications at a glance"
-        leading={<Image source={require('../../assets/logo.png')} style={styles.logo} />}
-      />
+      <StatusBar style="dark" />
+      <ScrollView
+        contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: gutter }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.topBar}>
+          <View style={styles.brand}>
+            <Image source={require('../../assets/logo.png')} style={styles.brandLogo} />
+            <Text style={styles.brandName}>Coral Vision</Text>
+          </View>
+          <IconButton name="map" label="Open map" onPress={() => navigation.navigate('Map')} />
+        </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}>
-        <Button
-          label="Capture Now"
-          onPress={() => navigation.navigate('Capture')}
-          style={styles.capture}
-        />
+        <Text style={[type.label, { marginTop: 28 }]}>{todayLabel()}</Text>
+        <Text style={[type.display, { marginTop: 6 }]}>Reef log</Text>
+        <Text style={[type.small, { marginTop: 6 }]}>
+          {totalCount === 0
+            ? 'Your identifications will collect here.'
+            : `${totalCount} ${totalCount === 1 ? 'identification' : 'identifications'} across ${siteCount} ${siteCount === 1 ? 'site' : 'sites'}`}
+        </Text>
+
+        {/* Focal point: start an identification */}
+        <View style={styles.hero}>
+          <Brackets color="rgba(255,255,255,0.16)" size={18} inset={12} />
+          <Text style={[type.label, { color: color.onAbyss3 }]}>New identification</Text>
+          <Text style={styles.heroTitle}>Identify a coral</Text>
+          <Text style={styles.heroBody}>Photograph it underwater, analyse it on the boat. Location is saved with every find.</Text>
+          <Button
+            variant="accent"
+            icon="scan"
+            label="Start"
+            onPress={() => navigation.navigate('Capture')}
+            style={{ marginTop: 20 }}
+          />
+        </View>
 
         <View style={styles.stats}>
-          <Stat value={totalCount} label="Identifications" />
-          <Stat value={uniqueSpeciesCount} label="Species" divider />
-          <Stat value={geoTaggedCount} label="Geo-tagged" divider />
+          <Stat value={totalCount} label="Finds" />
+          <Stat value={speciesCount} label="Species" rule />
+          <Stat value={taggedCount} label="Geo-tagged" rule />
         </View>
 
         <ThreatAlert
           records={records}
           onPress={() =>
-            navigation.navigate('History', {
-              speciesId: THREAT_SPECIES_ID,
-              filterLabel: 'Crown-of-thorns sightings',
-            })
+            navigation.navigate('History', { speciesId: THREAT_SPECIES_ID, filterLabel: 'Crown-of-thorns' })
           }
         />
 
-        <MiniMap records={records} onPress={() => navigation.navigate('Map')} />
+        <Group label="Map" action={{ label: 'Open', onPress: () => navigation.navigate('Map') }} bare>
+          <MiniMap records={records} onPress={() => navigation.navigate('Map')} />
+        </Group>
 
         <ConservationStatus records={records} />
 
         <SpeciesBreakdown
           records={records}
-          onSelect={(row) =>
-            navigation.navigate('History', { speciesId: row.id, filterLabel: row.name })
-          }
+          onSelect={(row) => navigation.navigate('History', { speciesId: row.id, filterLabel: row.name })}
         />
 
         <ConfidenceCheck
@@ -122,42 +153,38 @@ export default function DashboardScreen({ navigation }) {
           onReview={() =>
             navigation.navigate('History', {
               maxConfidence: LOW_CONFIDENCE,
-              filterLabel: `Below ${LOW_CONFIDENCE * 100}% confidence`,
+              filterLabel: 'Low confidence',
             })
           }
         />
 
-
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Recent activity</Text>
-          <Pressable onPress={() => navigation.navigate('History')} hitSlop={8}>
-            <Text style={styles.viewAll}>View all →</Text>
-          </Pressable>
-        </View>
-
-        {loaded && recentRecords.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No identifications yet</Text>
-            <Text style={styles.emptyText}>Identify a coral and save it to see it here.</Text>
-          </View>
-        ) : (
-          recentRecords.map((record) => (
-            <HistoryCard
-              key={record.id}
-              record={record}
-              onPress={() => navigation.navigate('HistoryDetail', { record })}
-            />
-          ))
-        )}
-
-        <View style={styles.actions}>
-          <Button style={styles.flex} variant="navy" label="History" onPress={() => navigation.navigate('History')} />
-          <Button style={styles.flex} variant="outline" label="View Map" onPress={() => navigation.navigate('Map')} />
-        </View>
+        <Group
+          label="Recent"
+          action={records.length > 0 ? { label: 'See all', onPress: () => navigation.navigate('History') } : undefined}
+          flush
+        >
+          {loaded && recent.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={type.bodyMedium}>No finds yet</Text>
+              <Text style={[type.small, { color: color.ink3, marginTop: 2, textAlign: 'center' }]}>
+                Identify a coral and save it to start your log.
+              </Text>
+            </View>
+          ) : (
+            recent.map((record, i) => (
+              <LogRow
+                key={record.id}
+                record={record}
+                last={i === recent.length - 1}
+                onPress={() => navigation.navigate('HistoryDetail', { record })}
+              />
+            ))
+          )}
+        </Group>
 
         {__DEV__ && (
           <Pressable onPress={confirmLoadSamples} hitSlop={8} style={styles.devLink}>
-            <Text style={styles.devLinkText}>Load sample data</Text>
+            <Text style={[type.small, { color: color.ink4 }]}>Load sample data</Text>
           </Pressable>
         )}
       </ScrollView>
@@ -166,38 +193,26 @@ export default function DashboardScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.mist },
-  content: { padding: 16 },
-  logo: { width: 40, height: 40, borderRadius: 10 },
-  capture: { marginBottom: 16 },
-  stats: {
-    flexDirection: 'row',
-    backgroundColor: colors.white,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.line,
-    paddingVertical: 18,
-    marginBottom: 12,
+  root: { flex: 1, backgroundColor: color.paper },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 40 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brandLogo: { width: 30, height: 30, borderRadius: 8 },
+  brandName: { fontFamily: font.sansSemi, fontSize: 15, letterSpacing: -0.2, color: color.ink },
+  hero: {
+    marginTop: 24,
+    backgroundColor: color.abyss,
+    borderRadius: radius.lg,
+    padding: 24,
+    paddingTop: 28,
+    paddingBottom: 28,
   },
-  stat: { flex: 1, alignItems: 'center' },
-  statDivider: { borderLeftWidth: 1, borderLeftColor: colors.line },
-  statValue: { color: colors.navy700, fontSize: 28, fontWeight: '700' },
-  statLabel: { color: colors.inkMuted, fontSize: 12, marginTop: 2 },
-  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 12 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: colors.ink },
-  viewAll: { fontSize: 13, fontWeight: '700', color: colors.coral600 },
-  empty: {
-    alignItems: 'center',
-    padding: 28,
-    backgroundColor: colors.white,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  emptyText: { fontSize: 13, color: colors.inkMuted, marginTop: 4, textAlign: 'center' },
-  actions: { flexDirection: 'row', gap: 12, marginTop: 18 },
-  flex: { flex: 1 },
-  devLink: { alignSelf: 'center', marginTop: 20, padding: 6 },
-  devLinkText: { fontSize: 13, color: colors.inkMuted, textDecorationLine: 'underline' },
+  heroTitle: { fontFamily: font.serif, fontSize: 32, lineHeight: 36, color: color.onAbyss, marginTop: 8, letterSpacing: -0.3 },
+  heroBody: { ...type.small, color: color.onAbyss2, marginTop: 6, maxWidth: 280 },
+  stats: { flexDirection: 'row', marginTop: 28, marginBottom: 28 },
+  stat: { flex: 1, paddingHorizontal: 4 },
+  statRule: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: color.hairStrong, paddingLeft: 16 },
+  statValue: { fontFamily: font.sansSemi, fontSize: 30, lineHeight: 34, letterSpacing: -0.8, color: color.ink, fontVariant: ['tabular-nums'] },
+  statLabel: { ...type.small, color: color.ink3, marginTop: 2 },
+  empty: { alignItems: 'center', paddingVertical: 28, paddingHorizontal: 24 },
+  devLink: { alignSelf: 'center', padding: 8 },
 });

@@ -1,13 +1,17 @@
-import { View, Text, StyleSheet, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import PhotoHero from '../components/PhotoHero';
+import MatchHeader from '../components/MatchHeader';
+import Possibilities from '../components/Possibilities';
 import SpeciesProfile from '../components/SpeciesProfile';
-import ScreenHeader from '../components/ScreenHeader';
-import Section from '../components/Section';
-import Brackets from '../components/Brackets';
 import LocationSection from '../components/LocationSection';
+import ScreenHeader from '../components/ScreenHeader';
+import Group from '../components/Section';
 import { getSpeciesById } from '../config/species';
-import colors from '../theme/colors';
-import { numeric } from '../theme/type';
+import { color, gutter, radius } from '../theme/tokens';
+import { type } from '../theme/type';
+import { catalogNumber, longDate } from '../utils/format';
 
 export default function HistoryDetailScreen({ route, navigation }) {
   const insets = useSafeAreaInsets();
@@ -17,77 +21,64 @@ export default function HistoryDetailScreen({ route, navigation }) {
   if (!record) {
     return (
       <View style={styles.root}>
-        <ScreenHeader title="Saved Identification" onBack={() => navigation.goBack()} />
-        <Text style={styles.missing}>Record not found.</Text>
+        <StatusBar style="dark" />
+        <ScreenHeader title="Not found" subtitle="This record no longer exists." onBack={() => navigation.goBack()} />
       </View>
     );
   }
 
-  const date = new Date(record.timestamp);
+  const top = record.predictions?.[0];
 
   return (
     <View style={styles.root}>
-      <ScreenHeader
-        title={record.topCommonName || 'Unknown species'}
-        subtitle={species ? species.scientificName : undefined}
-        subtitleItalic
-        onBack={() => navigation.goBack()}
-      />
+      <StatusBar style="light" />
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }} showsVerticalScrollIndicator={false}>
+        <PhotoHero uri={record.imageUri} onBack={() => navigation.goBack()} />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}>
-        {record.imageUri && (
-          <View style={styles.imageWrap}>
-            <Image source={{ uri: record.imageUri }} style={styles.image} resizeMode="cover" />
-            <Brackets color={colors.white} />
-          </View>
-        )}
+        <View style={styles.sheet}>
+          <MatchHeader
+            eyebrow={`${catalogNumber(record)} · ${longDate(record.timestamp)}`}
+            name={record.topCommonName || 'Unknown species'}
+            scientificName={top?.scientificName || species?.scientificName}
+            confidence={record.topConfidence}
+            confidenceLabel="Confidence when saved"
+          />
 
-        <Section title="Saved On">
-          <Text style={styles.meta}>
-            {date.toLocaleDateString()} at{' '}
-            {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
-        </Section>
+          <Possibilities
+            rows={(record.predictions || []).slice(1).map((p) => ({
+              key: p.speciesId,
+              name: p.commonName,
+              scientificName: p.scientificName,
+              confidence: p.confidence,
+            }))}
+          />
 
-        {record.predictions?.length > 0 && (
-          <Section title="Predictions">
-            {record.predictions.map((p, index) => (
-              <View key={p.speciesId} style={[styles.predRow, index > 0 && styles.predRowBorder]}>
-                <Text style={styles.predName}>{p.commonName}</Text>
-                <Text style={[styles.predPct, numeric, index === 0 && styles.predPctTop]}>
-                  {(p.confidence * 100).toFixed(2)}%
-                </Text>
+          <Group label="Species profile" bare>
+            {species ? (
+              <SpeciesProfile species={species} catalog={catalogNumber(record)} />
+            ) : (
+              <View style={styles.missing}>
+                <Text style={type.small}>The full profile for this species is no longer available.</Text>
               </View>
-            ))}
-          </Section>
-        )}
+            )}
+          </Group>
 
-        {species ? (
-          <Section title="Species Profile">
-            <SpeciesProfile species={species} />
-          </Section>
-        ) : (
-          <Section>
-            <Text style={styles.meta}>Full species profile unavailable for this record.</Text>
-          </Section>
-        )}
-
-        <LocationSection geoTag={record.geoTag} />
+          <LocationSection geoTag={record.geoTag} />
+        </View>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.mist },
-  content: { padding: 16 },
-  missing: { padding: 24, color: colors.inkMuted },
-  imageWrap: { height: 260, borderRadius: 24, overflow: 'hidden', marginBottom: 16, backgroundColor: colors.navy800 },
-  image: { width: '100%', height: '100%' },
-  meta: { fontSize: 14, color: colors.ink },
-  predRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10 },
-  predRowBorder: { borderTopWidth: 1, borderTopColor: colors.line },
-  predName: { fontSize: 15, fontWeight: '600', color: colors.ink },
-  predPct: { fontSize: 14, fontWeight: '700', color: colors.navy600 },
-  predPctTop: { color: colors.coral600 },
+  root: { flex: 1, backgroundColor: color.paper },
+  sheet: {
+    marginTop: -radius.lg,
+    backgroundColor: color.paper,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    paddingHorizontal: gutter,
+    paddingTop: 28,
+  },
+  missing: { padding: 16, borderRadius: radius.md, backgroundColor: color.surface },
 });

@@ -1,21 +1,22 @@
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import Section from './Section';
+import Group from './Section';
+import Icon from './Icon';
 import SPECIES, { getSpeciesById } from '../config/species';
-import colors from '../theme/colors';
-import { numeric } from '../theme/type';
+import { color, radius } from '../theme/tokens';
+import { type, font } from '../theme/type';
+import { placeLabel } from '../utils/format';
 
 export const THREAT_SPECIES_ID = 'crown_of_thorns_starfish';
 export const LOW_CONFIDENCE = 0.8;
 
-// IUCN buckets in severity order. Colours are solid versions of the badge
-// colours in SpeciesProfile; every bucket is also labelled in text.
+// IUCN buckets in severity order; every bucket is labelled in text.
 const STATUS_BUCKETS = [
-  { key: 'CR', label: 'Critically Endangered', color: '#C9413E', match: 'critically' },
-  { key: 'EN', label: 'Endangered', color: '#E07A3F', match: 'endangered' },
-  { key: 'VU', label: 'Vulnerable', color: '#E0A53B', match: 'vulnerable' },
-  { key: 'NT', label: 'Near Threatened', color: '#5FA3BF', match: 'near threatened' },
-  { key: 'LC', label: 'Least Concern', color: '#3E9E70', match: 'least concern' },
-  { key: 'NE', label: 'Not Evaluated', color: '#B8C2D6', match: null },
+  { key: 'CR', label: 'Critically Endangered', color: '#C0392F', match: 'critically' },
+  { key: 'EN', label: 'Endangered', color: '#D2702E', match: 'endangered' },
+  { key: 'VU', label: 'Vulnerable', color: '#C9962C', match: 'vulnerable' },
+  { key: 'NT', label: 'Near Threatened', color: '#4F93AB', match: 'near threatened' },
+  { key: 'LC', label: 'Least Concern', color: '#3A9467', match: 'least concern' },
+  { key: 'NE', label: 'Not Evaluated', color: '#B4B9C3', match: null },
 ];
 const THREATENED = ['CR', 'EN', 'VU'];
 
@@ -29,50 +30,33 @@ function statusOf(record) {
   return species?.conservationStatus || record.predictions?.[0]?.conservationStatus || '';
 }
 
-function siteLabel(record) {
-  const g = record.geoTag;
-  if (!g) return null;
-  if (g.placeName) return g.placeName.split(',')[0];
-  return `${g.latitude.toFixed(3)}, ${g.longitude.toFixed(3)}`;
-}
-
-function Link({ label, onPress }) {
-  return (
-    <Pressable onPress={onPress} hitSlop={8}>
-      <Text style={styles.link}>{label}</Text>
-    </Pressable>
-  );
-}
-
-/** Red card, only rendered when crown-of-thorns starfish have been recorded. */
+/** Shown only when crown-of-thorns starfish have been recorded. */
 export function ThreatAlert({ records, onPress }) {
   const sightings = records.filter((r) => r.topSpeciesId === THREAT_SPECIES_ID);
   if (sightings.length === 0) return null;
-  const sites = [...new Set(sightings.map(siteLabel).filter(Boolean))];
+  const sites = [...new Set(sightings.map((r) => placeLabel(r.geoTag)).filter(Boolean))];
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.alert, pressed && { opacity: 0.85 }]}
-      accessibilityRole="button"
-    >
-      <View style={styles.alertMark}>
-        <Text style={styles.alertMarkText}>!</Text>
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.alertTitle}>
-          {sightings.length} crown-of-thorns {sightings.length === 1 ? 'sighting' : 'sightings'}
-        </Text>
-        <Text style={styles.alertText} numberOfLines={2}>
-          {sites.length ? sites.join(' · ') : 'Location not recorded'}
-        </Text>
-      </View>
-      <Text style={styles.alertChevron}>›</Text>
+    <Pressable onPress={onPress} accessibilityRole="button" style={{ marginBottom: 28 }}>
+      {({ pressed }) => (
+        <View style={[styles.alert, pressed && { opacity: 0.85 }]}>
+          <Icon name="alert" size={20} color={color.alert} />
+          <View style={{ flex: 1 }}>
+            <Text style={[type.bodyMedium, { color: '#7E2A25' }]}>
+              {sightings.length} crown-of-thorns {sightings.length === 1 ? 'sighting' : 'sightings'}
+            </Text>
+            <Text style={[type.small, { color: '#8E4440', marginTop: 1 }]} numberOfLines={1}>
+              {sites.length ? sites.join(', ') : 'Location not recorded'}
+            </Text>
+          </View>
+          <Icon name="chevron" size={16} color="#B07470" strokeWidth={2} />
+        </View>
+      )}
     </Pressable>
   );
 }
 
-/** One stacked bar of finds by IUCN category, with a labelled legend. */
+/** Finds by IUCN category: one bar, legend as a list. */
 export function ConservationStatus({ records }) {
   if (records.length === 0) return null;
   const counts = {};
@@ -84,32 +68,31 @@ export function ConservationStatus({ records }) {
   const threatened = THREATENED.reduce((n, k) => n + (counts[k] || 0), 0);
 
   return (
-    <Section title="Conservation status">
-      <Text style={styles.headline}>
-        <Text style={[styles.headlineNum, numeric]}>{threatened}</Text> of {records.length} finds are
-        threatened species
-      </Text>
-      <View style={styles.stackBar}>
+    <Group label="Conservation status">
+      <View style={styles.figureRow}>
+        <Text style={styles.figure}>{threatened}</Text>
+        <Text style={[type.small, { flex: 1 }]}>
+          of {records.length} finds are threatened species{'\n'}
+          <Text style={{ color: color.ink3 }}>Vulnerable, Endangered or Critically Endangered</Text>
+        </Text>
+      </View>
+      <View style={styles.stack}>
         {present.map((b) => (
           <View key={b.key} style={{ flex: counts[b.key], backgroundColor: b.color }} />
         ))}
       </View>
-      <View style={styles.legend}>
-        {present.map((b) => (
-          <View key={b.key} style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: b.color }]} />
-            <Text style={styles.legendText}>
-              {b.label} <Text style={[styles.legendCount, numeric]}>{counts[b.key]}</Text>
-            </Text>
-          </View>
-        ))}
-      </View>
-      <Text style={styles.footnote}>Threatened = Vulnerable, Endangered or Critically Endangered (IUCN).</Text>
-    </Section>
+      {present.map((b) => (
+        <View key={b.key} style={styles.legendRow}>
+          <View style={[styles.legendDot, { backgroundColor: b.color }]} />
+          <Text style={[type.small, { flex: 1, color: color.ink }]}>{b.label}</Text>
+          <Text style={styles.count}>{counts[b.key]}</Text>
+        </View>
+      ))}
+    </Group>
   );
 }
 
-/** Ranked list of finds per species plus target-species coverage. */
+/** Finds per species, ranked, with target-species coverage. */
 export function SpeciesBreakdown({ records, onSelect }) {
   if (records.length === 0) return null;
   const counts = {};
@@ -122,40 +105,37 @@ export function SpeciesBreakdown({ records, onSelect }) {
   const max = rows[0]?.count || 1;
 
   return (
-    <Section title="Finds per species">
-      <Text style={styles.headline}>
-        <Text style={[styles.headlineNum, numeric]}>{rows.length}</Text> of {SPECIES.length} target
-        species recorded
-      </Text>
-      {rows.map((row) => (
-        <Pressable
-          key={row.id}
-          onPress={() => onSelect(row)}
-          style={({ pressed }) => [styles.speciesRow, pressed && { opacity: 0.6 }]}
-          accessibilityRole="button"
-        >
-          <Text style={styles.speciesName} numberOfLines={1}>
-            {row.name}
-          </Text>
-          <View style={styles.track}>
-            <View
-              style={[
-                styles.fill,
-                {
-                  width: `${(row.count / max) * 100}%`,
-                  backgroundColor: row.id === THREAT_SPECIES_ID ? colors.danger : colors.navy500,
-                },
-              ]}
-            />
-          </View>
-          <Text style={[styles.speciesCount, numeric]}>{row.count}</Text>
+    <Group label="Finds by species" note={`${rows.length} of ${SPECIES.length} recorded`}>
+      {rows.map((row, i) => (
+        <Pressable key={row.id} onPress={() => onSelect(row)} accessibilityRole="button">
+          {({ pressed }) => (
+            <View style={[styles.speciesRow, i > 0 && { marginTop: 12 }, pressed && { opacity: 0.55 }]}>
+              <View style={styles.speciesTop}>
+                <Text style={[type.small, { color: color.ink, flex: 1 }]} numberOfLines={1}>
+                  {row.name}
+                </Text>
+                <Text style={styles.count}>{row.count}</Text>
+              </View>
+              <View style={styles.track}>
+                <View
+                  style={[
+                    styles.fill,
+                    {
+                      width: `${(row.count / max) * 100}%`,
+                      backgroundColor: row.id === THREAT_SPECIES_ID ? color.alert : color.ink,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+          )}
         </Pressable>
       ))}
-    </Section>
+    </Group>
   );
 }
 
-/** Average model confidence and how many finds should be double-checked. */
+/** Average model confidence and how many finds deserve a second look. */
 export function ConfidenceCheck({ records, onReview }) {
   const scored = records.filter((r) => r.topConfidence != null);
   if (scored.length === 0) return null;
@@ -163,85 +143,62 @@ export function ConfidenceCheck({ records, onReview }) {
   const low = scored.filter((r) => r.topConfidence < LOW_CONFIDENCE).length;
 
   return (
-    <Section title="Identification confidence">
+    <Group label="Model confidence">
       <View style={styles.confRow}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.confValue, numeric]}>{(avg * 100).toFixed(1)}%</Text>
-          <Text style={styles.confLabel}>Average top-match confidence</Text>
+          <Text style={styles.figure}>{(avg * 100).toFixed(1)}%</Text>
+          <Text style={[type.small, { color: color.ink3 }]}>Average top match</Text>
         </View>
-        <View style={styles.confDivider} />
+        <View style={styles.vRule} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.confValue, numeric, low > 0 && { color: colors.warning }]}>{low}</Text>
-          <Text style={styles.confLabel}>Below {LOW_CONFIDENCE * 100}%</Text>
+          <Text style={[styles.figure, low > 0 && { color: color.amber }]}>{low}</Text>
+          <Text style={[type.small, { color: color.ink3 }]}>Below {LOW_CONFIDENCE * 100}%</Text>
         </View>
       </View>
       {low > 0 ? (
-        <View style={styles.confFooter}>
-          <Text style={styles.footnoteInline}>Worth checking against a field guide.</Text>
-          <Link label={`Review ${low} →`} onPress={onReview} />
-        </View>
-      ) : (
-        <Text style={styles.footnote}>All saved finds are at or above {LOW_CONFIDENCE * 100}%.</Text>
-      )}
-    </Section>
+        <Pressable onPress={onReview} accessibilityRole="button">
+          {({ pressed }) => (
+            <View style={[styles.reviewRow, pressed && { opacity: 0.6 }]}>
+              <Text style={[type.smallMedium, { flex: 1, color: color.ink }]}>
+                Review {low} {low === 1 ? 'find' : 'finds'} against a field guide
+              </Text>
+              <Icon name="chevron" size={16} color={color.ink3} strokeWidth={2} />
+            </View>
+          )}
+        </Pressable>
+      ) : null}
+    </Group>
   );
 }
 
 const styles = StyleSheet.create({
-  link: { fontSize: 13, fontWeight: '700', color: colors.coral600 },
-
   alert: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#FDECEC',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#F3C4C4',
-    padding: 14,
-    marginBottom: 12,
+    backgroundColor: color.alertSoft,
+    borderRadius: radius.md,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  alertMark: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  alertMarkText: { color: colors.white, fontSize: 17, fontWeight: '800' },
-  alertTitle: { fontSize: 15, fontWeight: '700', color: '#8A1F1F' },
-  alertText: { fontSize: 13, color: '#8A1F1F', marginTop: 2, opacity: 0.8 },
-  alertChevron: { fontSize: 24, color: '#8A1F1F', opacity: 0.6 },
-
-  headline: { fontSize: 14, color: colors.inkMuted, marginBottom: 12 },
-  headlineNum: { fontSize: 15, fontWeight: '700', color: colors.ink },
-  stackBar: { flexDirection: 'row', height: 12, borderRadius: 6, overflow: 'hidden', gap: 2 },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 12, columnGap: 16, rowGap: 6 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 9, height: 9, borderRadius: 5 },
-  legendText: { fontSize: 13, color: colors.ink },
-  legendCount: { fontWeight: '700' },
-  footnote: { fontSize: 12, color: colors.inkMuted, marginTop: 12 },
-
-  speciesRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
-  speciesName: { width: 118, fontSize: 13.5, color: colors.ink },
-  track: { flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.mist, overflow: 'hidden' },
-  fill: { height: 8, borderRadius: 4 },
-  speciesCount: { width: 20, textAlign: 'right', fontSize: 13.5, fontWeight: '700', color: colors.ink },
-
+  figureRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  figure: { fontFamily: font.sansSemi, fontSize: 30, lineHeight: 34, letterSpacing: -0.8, color: color.ink, fontVariant: ['tabular-nums'] },
+  stack: { flexDirection: 'row', height: 8, borderRadius: 4, overflow: 'hidden', gap: 2, marginBottom: 8 },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 8 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  count: { fontFamily: font.sansSemi, fontSize: 13, color: color.ink, fontVariant: ['tabular-nums'] },
+  speciesRow: {},
+  speciesTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  track: { height: 5, borderRadius: 3, backgroundColor: color.sunken, overflow: 'hidden' },
+  fill: { height: 5, borderRadius: 3 },
   confRow: { flexDirection: 'row', alignItems: 'center' },
-  confDivider: { width: 1, alignSelf: 'stretch', backgroundColor: colors.line, marginHorizontal: 14 },
-  confValue: { fontSize: 24, fontWeight: '700', color: colors.navy700 },
-  confLabel: { fontSize: 12, color: colors.inkMuted, marginTop: 2 },
-  confFooter: {
+  vRule: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: color.hairStrong, marginHorizontal: 16 },
+  reviewRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 14,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.line,
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: color.hairStrong,
   },
-  footnoteInline: { fontSize: 12, color: colors.inkMuted, flex: 1 },
 });

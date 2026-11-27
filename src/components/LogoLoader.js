@@ -1,86 +1,66 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
-import colors from '../theme/colors';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { color } from '../theme/tokens';
+import { type } from '../theme/type';
 
-const STEPS = ['Scanning image', 'Matching species', 'Retrieving profile'];
+const STEPS = ['Reading the photo', 'Comparing species', 'Pulling the profile'];
+const SIZE = 92;
 
-// Animated "analyzing" state: the logo breathes inside a spinning coral ring
-// with a soft pulse wave behind it, and the caption cycles through steps.
+// Quiet "identifying" state: the logo inside a slowly turning coral arc,
+// with a caption that steps through the work being done.
 export default function LogoLoader() {
   const spin = useRef(new Animated.Value(0)).current;
-  const pulse = useRef(new Animated.Value(0)).current;
-  const wave = useRef(new Animated.Value(0)).current;
+  const breathe = useRef(new Animated.Value(0)).current;
   const [step, setStep] = useState(0);
 
   useEffect(() => {
     const spinLoop = Animated.loop(
-      Animated.timing(spin, { toValue: 1, duration: 1100, easing: Easing.linear, useNativeDriver: true })
+      Animated.timing(spin, { toValue: 1, duration: 1400, easing: Easing.linear, useNativeDriver: true })
     );
-    const pulseLoop = Animated.loop(
+    const breatheLoop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 650, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 650, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(breathe, { toValue: 1, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(breathe, { toValue: 0, duration: 900, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
       ])
     );
-    const waveLoop = Animated.loop(
-      Animated.timing(wave, { toValue: 1, duration: 1600, easing: Easing.out(Easing.quad), useNativeDriver: true })
-    );
     spinLoop.start();
-    pulseLoop.start();
-    waveLoop.start();
-    const timer = setInterval(() => setStep((s) => (s + 1) % STEPS.length), 900);
+    breatheLoop.start();
+    const timer = setInterval(() => setStep((s) => (s + 1) % STEPS.length), 1000);
     return () => {
       spinLoop.stop();
-      pulseLoop.stop();
-      waveLoop.stop();
+      breatheLoop.stop();
       clearInterval(timer);
     };
-  }, [spin, pulse, wave]);
+  }, [spin, breathe]);
 
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const logoScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.04] });
-  const waveScale = wave.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.5] });
-  const waveOpacity = wave.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] });
+  const scale = breathe.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1.02] });
 
   return (
     <View style={styles.wrap}>
       <View style={styles.stage}>
-        <Animated.View style={[styles.wave, { opacity: waveOpacity, transform: [{ scale: waveScale }] }]} />
-        <Animated.View style={[styles.ring, { transform: [{ rotate }] }]} />
-        <Animated.Image
-          source={require('../../assets/logo.png')}
-          style={[styles.logo, { transform: [{ scale: logoScale }] }]}
-        />
+        <View style={styles.track} />
+        <Animated.View style={[styles.arc, { transform: [{ rotate }] }]} />
+        <Animated.Image source={require('../../assets/logo.png')} style={[styles.logo, { transform: [{ scale }] }]} />
       </View>
-      <Text style={styles.title}>Analyzing coral</Text>
-      <Text style={styles.step}>{STEPS[step]}…</Text>
+      <Text style={[type.heading, { marginTop: 20 }]}>Identifying</Text>
+      <Text style={[type.small, { color: color.ink3, marginTop: 3 }]}>{STEPS[step]}…</Text>
     </View>
   );
 }
 
-const SIZE = 148;
-
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', paddingVertical: 28 },
+  wrap: { alignItems: 'center', paddingVertical: 36 },
   stage: { width: SIZE, height: SIZE, alignItems: 'center', justifyContent: 'center' },
-  wave: {
+  track: { position: 'absolute', width: SIZE, height: SIZE, borderRadius: SIZE / 2, borderWidth: 2, borderColor: color.hair },
+  arc: {
     position: 'absolute',
     width: SIZE,
     height: SIZE,
     borderRadius: SIZE / 2,
-    backgroundColor: colors.coral500,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    borderTopColor: color.coral,
   },
-  ring: {
-    position: 'absolute',
-    width: SIZE,
-    height: SIZE,
-    borderRadius: SIZE / 2,
-    borderWidth: 3,
-    borderColor: 'rgba(242,139,130,0.18)',
-    borderTopColor: colors.coral500,
-    borderRightColor: colors.coral500,
-  },
-  logo: { width: 104, height: 104, borderRadius: 26 },
-  title: { marginTop: 20, fontSize: 17, fontWeight: '700', color: colors.ink },
-  step: { marginTop: 4, fontSize: 14, color: colors.inkMuted },
+  logo: { width: 64, height: 64, borderRadius: 16 },
 });
